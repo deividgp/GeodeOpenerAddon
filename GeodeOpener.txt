@@ -1,6 +1,6 @@
 ## Title: GeodeOpener
 ## APIVersion: 100033
-## Version: 0.9
+## Version: 0.9.2
 ## Author: @Deividgp (PC EU)
 ## Description: Addon to open geodes automatically (settings) or by using a command (/go or /geodeopener).
 ## SavedVariables: GeodeOpenerSavedVars
