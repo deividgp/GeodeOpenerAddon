@@ -2,19 +2,32 @@ GO = {}
 
 GO.name = "GeodeOpener"
 GO.name = "GeodeOpener"
-GO.version = "v0.9.2"
+GO.version = "v0.9.3"
 GO.author = "Deividgp"
 
 GO.defaults = {
   autoOpener = false,
+  openMailGeode = false,
+  openQuestGeode = false,
 }
-
-local geodeIds = {134595, 134583, 134588, 134590, 134591, 171531, 134618, 134622, 134623}
+--Item Id's
+--134595: Tester's Infinite Transmutation Geode (PTS)
+--134583: White Transmutation Geode
+--134588: Blue Transmutation Geode
+--134590: Purple Transmutation Geode
+--134591: Gold Transmutation Geode
+--171531: Green Transmutation Geode
+--134618: Gold Uncracked Transmutation Geode
+--134622: Blue Uncracked Transmutation Geode
+--134623: Purple Uncracked Transmutation Geode
+--140222: 200 Transmute Crystals
+local geodeIds = {134595, 134583, 134588, 134590, 134591, 171531, 134618, 134622, 134623, 140222}
 local limitText = "GeodeOpener stopped because looting would put you over the stone limit"
 local notEnoughText = "There is not enough space. Use some crystals"
 local cooldown = 500
 local openCd = 1000
 local lootCd = 500
+local enoughSpace
 
 --Checks if there are geodes with a specific id
 local function existsId(itemId)
@@ -41,35 +54,35 @@ end
 
 --Proceeds to open the geode
 local function openGeode(bagId, slotId)
-  if IsProtectedFunction("UseItem") then
-    CallSecureProtected("UseItem", bagId, slotId)
-  else
-    UseItem(bagId, slotId)
-  end
+  --if enoughSpace == true then
+    if IsProtectedFunction("UseItem") then
+      CallSecureProtected("UseItem", bagId, slotId)
+    else
+      UseItem(bagId, slotId)
+    end
+  --end
 end
 
 --Proceeds to loot the geode
 local function lootGeode()
-  --Check if looting that geode would put the user over the stone limit
-  if GetCurrencyAmount(CURT_CHAOTIC_CREATIA,CURRENCY_LOCATION_ACCOUNT) + GetLootCurrency(CURT_CHAOTIC_CREATIA) <=  GetMaxPossibleCurrency(CURT_CHAOTIC_CREATIA, CURRENCY_LOCATION_ACCOUNT) then
-    --Loots and ends the looting action (after cooldown)
-    zo_callLater(function()
+  --if enoughSpace == true then
+    --Check if looting that geode would put the user over the stone limit
+    if GetCurrencyAmount(CURT_CHAOTIC_CREATIA,CURRENCY_LOCATION_ACCOUNT) + GetLootCurrency(CURT_CHAOTIC_CREATIA) <=  GetMaxPossibleCurrency(CURT_CHAOTIC_CREATIA, CURRENCY_LOCATION_ACCOUNT) then
+      --Loots and ends looting
       LootCurrency(CURT_CHAOTIC_CREATIA)
       EndLooting()
-    end, cooldown)
-    return true
-  else
-    --If not enough space ends the looting
-    zo_callLater(function()
+    else
+      --If not enough space ends looting
       EndLooting()
-    end, cooldown)
-    d(warningText)
-    return false
-  end
+      d(limitText)
+      enoughSpace = false
+    end
+  --end
 end
 
 --Main function
 local function loopGeodes()
+  enoughSpace = true
   --Main loop to iterate through the whole backpack
   for slotId=0, GetBagSize(BAG_BACKPACK) do
     local itemId = GetItemId(BAG_BACKPACK, slotId)
@@ -80,17 +93,16 @@ local function loopGeodes()
       end, cooldown)
       --Adds cooldown (+500 ms)
       cooldown = cooldown + lootCd
-      enoughSpace = lootGeode()
-      --If there is not enough space for crystals
-      if enoughSpace == false then
-        resetCd()
-        return
-      end
+      --Attempts to loot after cooldown
+      zo_callLater(function()
+        lootGeode()
+      end, cooldown)
       --Adds more cooldown (+1000 ms)
       cooldown = cooldown + openCd
 
     end
   end
+  --Resets cooldown when loop ends
   resetCd()
 end
 
@@ -104,6 +116,14 @@ local function initializeLoop()
 end
 
 function GO.OnPlayerActivated(event)
+  initializeLoop()
+end
+
+function GO.OnTakeAttachedSuccess(event, mailId)
+  initializeLoop()
+end
+
+function GO.OnQuestComplete(event, questName, playerLevel, previousXP, currentXP, playerVeteranRank, previousVeteranPoints, currentVeteranPoints)
   initializeLoop()
 end
 
@@ -123,9 +143,17 @@ function GO.OnAddOnLoaded(event, addOnName)
   GO.vars = ZO_SavedVars:NewAccountWide("GeodeOpenerSavedVars", 1, nil, GO.defaults)
   GO.CreateSettingsMenu()
 
-  --If autoOpener is on (starts everytime you reload ui)
+  --If autoOpener is on (starts everytime there is a loading screen)
   if GO.vars.autoOpener then
     EVENT_MANAGER:RegisterForEvent(GO.name, EVENT_PLAYER_ACTIVATED, GO.OnPlayerActivated)
+  end
+  --If openMailGeode is on (starts everytime the user takes mail attachments)
+  if GO.vars.openMailGeode then
+    EVENT_MANAGER:RegisterForEvent(GO.name, EVENT_MAIL_TAKE_ATTACHED_ITEM_SUCCESS, GO.OnTakeAttachedSuccess)
+  end
+  --If openQuestGeode is on (starts everytime completes a quest)
+  if GO.vars.openQuestGeode then
+    EVENT_MANAGER:RegisterForEvent(GO.name, EVENT_QUEST_COMPLETE, GO.OnQuestComplete)
   end
 end
 
